@@ -27,7 +27,7 @@ nlp = spacy.load('en_core_web_sm')
 # Functions
 
 def str_stemmer(s):
-    return " ".join([nlp(word)[0].lemma_ for word in s.lower().split()])
+    return " ".join([stemmer.stem(word) for word in s.lower().split()])
 
 def str_common_word(str1, str2):
     return sum(int(str2.find(word)>=0) for word in str1.split())
