@@ -13,29 +13,32 @@ import numpy as np
 import pandas as pd
 
 
-# In[94]:
+# In[2]:
 
 
 # Plotting
 import matplotlib.pyplot as plt
 import seaborn as sns
-get_ipython().run_line_magic('matplotlib', 'inline')
+sns.set_style("whitegrid")
+get_ipython().magic('matplotlib inline')
 
 
-# In[80]:
+# In[3]:
 
 
 # Misc
 import os
 import re
 from pprint import pprint as pp
+import logging
 
 
-# In[190]:
+# In[4]:
 
 
 # Machine Learning
 import nltk
+import spacy
 nltk.download('punkt')
 nltk.download('averaged_perceptron_tagger')
 from nltk.stem.snowball import SnowballStemmer
@@ -49,22 +52,34 @@ from sklearn import metrics
 # In[5]:
 
 
-data_path = "../../scrap/KAG_home-depot/"
+logging.basicConfig(filename='run.log', level=logging.INFO)
 
 
 # In[6]:
 
 
+pd.options.mode.chained_assignment = None
+
+
+# In[7]:
+
+
+data_path = "../../scrap/KAG_home-depot/"
+
+
+# In[8]:
+
+
 stemmer = SnowballStemmer('english')
 
 
-# In[ ]:
+# In[9]:
 
 
-nlp = spacy.load('en_core_web_lg')
+nlp = spacy.load('en')
 
 
-# In[159]:
+# In[10]:
 
 
 nlp_tag = spacy.load('en', disable=['parser', 'ner'])
@@ -72,21 +87,21 @@ nlp_tag = spacy.load('en', disable=['parser', 'ner'])
 
 # ## Functions
 
-# In[8]:
+# In[11]:
 
 
 def str_stemmer(s):
     return " ".join([stemmer.stem(word) for word in s.lower().split()])
 
 
-# In[9]:
+# In[12]:
 
 
 def str_common_word(str1, str2):
     return sum(int(str2.find(word)>=0) for word in str1.split())
 
 
-# In[10]:
+# In[13]:
 
 
 def process_data(df):
@@ -100,7 +115,7 @@ def process_data(df):
     return df
 
 
-# In[ ]:
+# In[14]:
 
 
 def get_pos_counts(search_terms_list):
@@ -113,7 +128,7 @@ def get_pos_counts(search_terms_list):
     pos_tot = (pos_st1 + pos_st2).sort_values()
 
 
-# In[ ]:
+# In[15]:
 
 
 # # Plot
@@ -124,7 +139,7 @@ def get_pos_counts(search_terms_list):
 # plt.savefig('pos_tags_bar.png', dpi=500, bbox_inches="tight")
 
 
-# In[142]:
+# In[16]:
 
 
 def lemm(word, nlp):
@@ -133,12 +148,12 @@ def lemm(word, nlp):
 
 # ## Import data
 
-# In[11]:
+# In[17]:
 
 
+logging.info("Importing Data...")
 os.listdir('../../scrap/')
 csvs = [f for f in os.listdir(data_path) if re.search(".csv$", f)]
-print(csvs)
 data_dict = {}
 for csv in csvs:
     data_dict[csv.split()[0]] = pd.read_csv(data_path+csv, encoding='latin1')
@@ -149,174 +164,60 @@ attributes = data_dict['attributes.csv']
 sample_sub = data_dict['sample_submission.csv']
 
 
-# ## High-Level Overview
-
-# ### Test Data
-
-# In[12]:
-
-
-test_df.head()
-
-
-# In[13]:
-
-
-test_df.info()
-
-
-# ### Train Data
-
-# In[14]:
-
-
-train_df.head()
-
-
-# In[15]:
-
-
-train_df.info()
-
-
-# ### Sample Sub
-
-# In[16]:
-
-
-sample_sub.head()
-
-
-# In[17]:
-
-
-sample_sub.info()
-
-
-# ### Attributes of Products
+# ## Data Handling
 
 # In[18]:
 
 
-attributes.head()
+logging.info("Preparing Data...")
+attr = attributes.dropna(how='all')
+attr[['name','value']] = attr[['name','value']].fillna('')
+attr['product_uid'] = attr['product_uid'].apply(lambda x: int(x))
+attr['name'] = attr['name'].apply(lambda x: '' if "Bullet" in x else x)
+attr['Attributes'] = attr['name'] + '\t' + attr['value'] + '\n'
+attr = attr.drop(['name','value'], axis=1).groupby('product_uid').sum().reset_index()
+df_train = pd.merge(train_df, prod_desc, how='left', on='product_uid').drop('id', axis=1).merge(attr, on='product_uid')
 
 
 # In[19]:
 
 
-attributes.info()
-
-
-# ### Product Descriptions
-
-# In[20]:
-
-
-prod_desc.head()
-
-
-# In[21]:
-
-
-prod_desc.info()
+df_train.head()
 
 
 # ## Investigation
 
-# Let start by using moomin's sklearn random forest kernel on Kaggle to get a starting point
-
-# In[32]:
+# In[20]:
 
 
-attr = attributes.dropna(how='all')
-attr.loc[:,'product_uid'] = attr.loc[:,'product_uid'].apply(lambda x: int(x))
-attr['name'] = attr['name'].apply(lambda x: 'Multi' if "Bullet" in x else x)
-attr = attr.groupby(['product_uid','name']).apply(lambda x: '\n'.join(x['value'].dropna())).reset_index(name='value').set_index('product_uid')
+df_train['relevance'].hist(bins=8)
 
 
 # In[22]:
 
 
-df_train = pd.merge(train_df, prod_desc, how='left', on='product_uid').drop('id', axis=1)
-df_test = pd.merge(test_df, prod_desc, how='left', on='product_uid').drop('id', axis=1)
-
-
-# In[23]:
-
-
-df_train[df_train['relevance']==3.0].head()
-
-
-# In[24]:
-
-
-# Get docs
-pt_doc = nlp(df_train.iloc[0,1])
-st_doc = nlp(df_train.iloc[0,2])
-pd_doc = nlp(df_train.iloc[0,4])
-
-
-# In[29]:
-
-
 df_train['search_term'].apply(lambda x: len(x.split())).mean()
 
 
-# In[52]:
-
-
-uid = 100002
-print(df_train[(df_train['relevance']==3.0) & (df_train['product_uid']==uid)].head()['product_title'].values[0])
-print()
-print(df_train[(df_train['relevance']==3.0) & (df_train['product_uid']==uid)].head()['search_term'].values[0])
-print()
-print(df_train[(df_train['relevance']==3.0) & (df_train['product_uid']==uid)].head()['product_description'].values[0])
-print()
-pp(attr.loc[uid, 'name'])
-pp(attr.loc[uid, 'value'].values)
-
-
-# In[33]:
-
-
-print([x for x in pd_doc if not x.is_stop])
-
-
-# In[67]:
-
-
-search_terms = ' '.join(df_train['search_term'].values)
-
-
-# In[70]:
-
-
-l = len(search_terms)
-search_terms_list = [
-    search_terms[0:int(l/2)],
-    search_terms[int(l/2):]
-]
-
-
-# In[126]:
+# In[ ]:
 
 
 words_st = ' '.join(df_train['search_term'].values).split()
 
 
-# In[156]:
+# In[ ]:
 
 
 len(words_st)/5000 * 9.64 / 60
 
 
-# In[158]:
+# In[ ]:
 
 
 len(words_st)/5000 * 32 / 60
 
 
-# In[165]:
+# In[ ]:
 
 
 import time
@@ -330,8 +231,62 @@ print(time.time()-start)
 
 # Attributes wasn't used...I think there must be something here. Also only stems were taken...can we not extract keywords?
 
-# In[191]:
+# In[ ]:
 
 
 nltk.pos_tag(nltk.word_tokenize(' '.join(attr.loc[100001, 'value'].values)))
+
+
+# In[ ]:
+
+
+attr.head()
+
+
+# In[ ]:
+
+
+master.head()
+
+
+# In[ ]:
+
+
+master['query_len'] = master['search_term'].apply(lambda x: len(x.split()))
+
+
+# In[ ]:
+
+
+master['query_len'].hist(bins=15)
+
+
+# In[ ]:
+
+
+master[['query_len','relevance']].plot(kind='scatter', x='relevance', y='query_len', alpha=0.4)
+
+
+# In[ ]:
+
+
+logging.info("NLP brah...")
+# import time
+# start = time.time()
+master_nlp = master.loc[:, ['product_title','search_term', 'product_description','Attributes']].applymap(nlp_tag)
+# print("Time to complete is: {}".format((time.time()-start)*len(master)/(500*60)))
+
+
+# In[ ]:
+
+
+master_nlp.to_pickle(data_path+'master_nlp.pickle')
+
+
+# In[ ]:
+
+
+# Remove stop characters, punctuation, 
+
+# Lemmatise
 
