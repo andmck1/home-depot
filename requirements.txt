@@ -3,5 +3,4 @@ pandas
 seaborn
 jupyter
 ipykernel
-sklearn
-
+fastai
