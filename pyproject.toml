@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "home-depot"
+version = "0.1.0"
+description = ""
+authors = ["andmck <alastair.amhamilton@icloud.com>"]
+readme = "README.md"
+packages = [{include = "home_depot"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+pandas = "^2.0.2"
+numpy = "^1.24.3"
+spacy = "^3.5.3"
+matplotlib = "^3.7.1"
+seaborn = "^0.12.2"
+scikit-learn = "^1.2.2"
+nltk = "^3.8.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
